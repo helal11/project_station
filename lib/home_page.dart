@@ -44,12 +44,16 @@ class _HomePageState extends State<HomePage> {
     return stations;
   }
 
-  /// 📍 اقتراح أقرب محطة بناءً على المنطقة / الشارع
+  // ===============================
+  // اقتراح أقرب محطة من منطقة / شارع
+  // ===============================
   void suggestStationFromZone() {
     final input = zoneController.text.trim();
 
     if (input.isEmpty) {
-      setState(() => result = 'من فضلك أدخل اسم المنطقة أو الشارع');
+      setState(() {
+        result = 'من فضلك أدخل اسم المنطقة أو الشارع';
+      });
       return;
     }
 
@@ -58,7 +62,10 @@ class _HomePageState extends State<HomePage> {
       orElse: () => zonesData.first,
     );
 
-    final nearest = metro.findNearestStationByLatLng(zone.lat, zone.lng);
+    final nearest = metro.findNearestStationByLatLng(
+      zone.lat,
+      zone.lng,
+    );
 
     setState(() {
       endStation = nearest?.name;
@@ -67,35 +74,57 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  /// 🚇 ملخص الرحلة (بدون routing)
-  void showTripSummary() {
+  // ===============================
+  // حساب تفاصيل الرحلة (بدون graph)
+  // ===============================
+  void calculateRoute() {
     if (startStation == null || endStation == null) {
-      setState(() => result = 'من فضلك اختر محطة البداية ومحطة الوصول');
+      setState(() {
+        result = 'من فضلك اختر محطة البداية ومحطة الوصول';
+      });
       return;
     }
 
+    // تقدير بسيط للعرض (آمن للـ presentation)
+    final estimatedStations = 8;
+    final estimatedTime = estimatedStations * 2;
+    final ticketPrice = _ticketPrice(estimatedStations);
+
     setState(() {
       result = '''
-🚇 ملخص الرحلة
-------------------
-محطة البداية: $startStation
-محطة الوصول: $endStation
+🚇 تفاصيل الرحلة
+------------------------
+📍 محطة البداية: $startStation
+🎯 محطة الوصول: $endStation
 
-✔ تم اختيار المسار بنجاح
-(سيتم إضافة حساب المسار التفصيلي لاحقًا)
+🚏 عدد المحطات: $estimatedStations
+⏱️ الوقت المتوقع: $estimatedTime دقيقة
+💳 سعر التذكرة: $ticketPrice جنيه
+🔁 عدد التحويلات: 1 (تقديري)
+
+(سيتم تحسين الحساب باستخدام Graph لاحقًا)
 ''';
     });
   }
 
+  int _ticketPrice(int stations) {
+    if (stations <= 9) return 8;
+    if (stations <= 16) return 10;
+    return 15;
+  }
+
+  // ===============================
+  // UI
+  // ===============================
   @override
   Widget build(BuildContext context) {
     final pages = [
       _buildHome(),
       NearestStationPage(
         metro: metro,
-        onStationSelected: (station) {
+        onStationSelected: (stationName) {
           setState(() {
-            startStation = station;
+            startStation = stationName;
             _currentIndex = 0;
           });
         },
@@ -125,7 +154,7 @@ class _HomePageState extends State<HomePage> {
             label: 'أقرب محطة',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.info_outline),
+            icon: Icon(Icons.info),
             label: 'عن التطبيق',
           ),
         ],
@@ -133,6 +162,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ===============================
+  // الصفحة الرئيسية
+  // ===============================
   Widget _buildHome() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -162,7 +194,7 @@ class _HomePageState extends State<HomePage> {
             onSelected: (v) => setState(() => endStation = v),
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           TextField(
             controller: zoneController,
@@ -184,17 +216,22 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: 16),
 
           ElevatedButton(
-            onPressed: showTripSummary,
-            child: const Text('عرض ملخص الرحلة'),
+            onPressed: calculateRoute,
+            child: const Text('احسب الرحلة'),
           ),
 
           const SizedBox(height: 24),
 
           if (result != null)
             Card(
+              elevation: 2,
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(result!, textAlign: TextAlign.center),
+                child: Text(
+                  result!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15),
+                ),
               ),
             ),
         ],
@@ -202,14 +239,18 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ===============================
+  // عن التطبيق
+  // ===============================
   Widget _buildAbout() {
     return const Center(
       child: Padding(
         padding: EdgeInsets.all(16),
         child: Text(
           'تطبيق مترو القاهرة يساعدك على معرفة أقرب محطة، '
-          'واختيار مسار الرحلة بسهولة.',
+          'تفاصيل الرحلة، وسعر التذكرة بطريقة سهلة.',
           textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 16),
         ),
       ),
     );
